@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Audio Streaming</title>
+	<style type="text/css">
+		body {
+			background-color: #111;
+		}
+	</style>
+</head>
+<body>
+	<audio controls type="audio/mpeg" muted="muted" autoplay>
+		No Audio Support for your Browser!
+	</audio>
+	<script type="text/javascript">
+		window.onload = () => document.querySelector('audio').src = '/stream/audio?time=' + Date.now()
+	</script>
+</body>
+</html>
