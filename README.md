@@ -1,4 +1,4 @@
-# REALTIME STREAMING MODIFICATION USING FFMPEG AND GO
+# "REALTIME" STREAMING MODIFICATION USING FFMPEG AND GO
 
 <p><strong>Disclaimer</strong>: This project has no intent to be used as an in-production software, cause it's just an <strong style="color:dodgerblue"><i>experimental</i></strong> project. You can also note that it has many bad coding practices. But as i said, its just <strong style="color:dodgerblue"><i>experimental</i></strong>.</p>
 
