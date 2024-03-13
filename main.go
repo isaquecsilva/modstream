@@ -16,7 +16,7 @@ var (
 
 func init() {
 	if err := godotenv.Load(".env"); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 }
 
@@ -29,7 +29,7 @@ func orElse(s, defaultValue string) string {
 }
 
 func main() {
-	address = orElse(os.Getenv("ADDRESS"), "127.0.0.1:8000")
+	address = orElse(os.Getenv("ADDRESS"), ":8000")
 
 	audio, err := os.Open("public/media/audiostream.mp3")
 	if err != nil {

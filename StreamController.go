@@ -4,9 +4,11 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"runtime"
 	"sync"
 	"time"
 
+	"github.com/cassava/lackey/audio/mp3"
 	"github.com/google/uuid"
 )
 
@@ -45,20 +47,26 @@ func (srm *StreamRegulatorAndTransformer) RemoveClient(streamId string) {
 
 func (srm *StreamRegulatorAndTransformer) StartStream() {
 	for {
-		// Browsers usually make many requests for the stream chunks, so it has a greater
-		// buffer, even if we have reduced the chunks size. To avoid our audio fx to be played
-		// too much further than requested, we'll control the delay a browser (or client in general) will
-		// receive the chunks. So we add a simple sleep.
-		time.Sleep(time.Second * 2)
-
 		if len(srm.clientStreams) <= 0 {
 			continue
 		}
 
 		if srm.modification[0] != "" {
-			srm.executeStreamTransformation(srm.modification[0], srm.stream)
+			waitTime, err := srm.executeStreamTransformation(srm.modification[0], srm.stream)
 			srm.deleteCurrentActiveModification()
-			time.Sleep(time.Second * 8)
+			if err != nil {
+				slog.Error("Audio Wait Time", "message", err.Error())
+				// In this case, set arbitrary wait time based on all audios duration seconds, 
+				// except audiostream.mp3
+				time.Sleep(time.Second * 8)
+			} else {
+				// Here, we remove some  milliseconds from our waitTime
+				// cause if we dont do this, in the stream, the client will notice
+				// a certain "pause" on audio. Indeed, cause we stoped the browser from receiving stream chunks
+				// until our waitime has passed.
+				time.Sleep(waitTime - (time.Millisecond * 100))
+			}
+
 			continue
 		}
 
@@ -71,6 +79,12 @@ func (srm *StreamRegulatorAndTransformer) StartStream() {
 		}
 
 		srm.broadcast(srm.buffer[:n])
+
+		// Browsers usually make many requests for the stream chunks, so it has a greater
+		// buffer, even if we have reduced the chunks size. To avoid our audio fx to be played
+		// too much further than requested, we'll control the delay a browser (or client in general) will
+		// receive the chunks. So we add a simple sleep.
+		time.Sleep(time.Second * 2)
 	}
 }
 
@@ -85,7 +99,16 @@ func (srm *StreamRegulatorAndTransformer) broadcast(buf []byte) {
 	}
 }
 
-func (srm *StreamRegulatorAndTransformer) executeStreamTransformation(audioName string, stdin io.Reader) {
+func (srm *StreamRegulatorAndTransformer) getAudioDuration(filename string) (time.Duration, error) {
+	metadata, err := mp3.ReadMetadata(filename)
+	if err != nil {
+		return time.Duration(0), err
+	}
+
+	return metadata.Length(), nil
+}
+
+func (srm *StreamRegulatorAndTransformer) executeStreamTransformation(audioName string, stdin io.Reader) (time.Duration, error) {
 	ffmpeg := CreateFFMPEGProcess(audioName)
 	ffmpeg.Stdin = stdin
 
@@ -115,6 +138,14 @@ func (srm *StreamRegulatorAndTransformer) executeStreamTransformation(audioName 
 		log.Fatal("FFMPEG START ERROR", err.Error())
 	}
 	ffmpeg.Wait()
+
+	// Forcing a GC causes ffmpeg spawning continuously increases memory usage of the main
+	// process
+	runtime.GC()
+
+	// Getting audio duration to forward, we can delay the next client
+	// requests according to the duration provided.
+	return srm.getAudioDuration(audioName)
 }
 
 func (srm *StreamRegulatorAndTransformer) SetModification(audioName string) {
